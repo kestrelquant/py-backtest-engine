@@ -47,9 +47,42 @@ def ema_cross_strategy(fast: int = 12, slow: int = 26, atr_mult: float = 2.0):
     return strategy_fn
 
 
+def ema_cross_strategy_factory(params: dict):
+    """Adapts ema_cross_strategy's keyword args to the (params: dict) -> strategy_fn
+    shape grid_search/walk_forward expect."""
+    return ema_cross_strategy(fast=params["fast"], slow=params["slow"], atr_mult=params.get("atr_mult", 2.0))
+
+
 if __name__ == "__main__":
-    data = make_synthetic_ohlcv()
+    from backtester import grid_search, walk_forward
+
+    data = make_synthetic_ohlcv(n=1500)
+
     bt = Backtester(data, ema_cross_strategy(), initial_equity=10_000, risk_per_trade=0.01)
     result = bt.run()
+    print("-- single run, default params --")
     for k, v in metrics.summary(result).items():
         print(f"{k}: {v:.4f}" if isinstance(v, float) else f"{k}: {v}")
+
+    print("\n-- grid search (top 3 by Sharpe) --")
+    ranked = grid_search(
+        data,
+        ema_cross_strategy_factory,
+        param_grid={"fast": [8, 12, 16], "slow": [26, 40], "atr_mult": [1.5, 2.0]},
+    )
+    for r in ranked[:3]:
+        print(f"{r.params} -> sharpe={r.score:.4f}, trades={len(r.result.closed_trades)}")
+
+    print("\n-- walk-forward (out-of-sample only) --")
+    windows = walk_forward(
+        data,
+        ema_cross_strategy_factory,
+        param_grid={"fast": [8, 12, 16], "slow": [26, 40]},
+        train_size=500,
+        test_size=250,
+    )
+    for w in windows:
+        print(
+            f"train [{w.train_start.date()}..{w.train_end.date()}] best={w.best_params} "
+            f"-> test [{w.test_start.date()}..{w.test_end.date()}] oos_sharpe={w.test_score:.4f}"
+        )
