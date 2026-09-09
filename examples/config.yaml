@@ -1,0 +1,25 @@
+# Example configuration for examples/run_from_config.py.
+# Points at examples/fixtures/sample_ohlcv.csv by default -- swap `data_path`
+# for your own OHLCV export (columns: time,open,high,low,close).
+
+data:
+  path: fixtures/sample_ohlcv.csv
+
+backtest:
+  initial_equity: 10000
+  risk_per_trade: 0.01
+
+strategy:
+  name: ema_cross
+  fast: 12
+  slow: 26
+  atr_mult: 2.0
+
+optimize:
+  enabled: true
+  n_splits: 4
+  train_size: 300
+  test_size: 100
+  param_grid:
+    fast: [8, 12, 16]
+    slow: [26, 40]
